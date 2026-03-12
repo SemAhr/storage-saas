@@ -1,6 +1,6 @@
 namespace MediaService.Contracts.Media;
 
-public sealed record PresignedUploadDto(
+public sealed record PresignedRquestDto(
     string FileName,
     string MimeType,
     long Size
