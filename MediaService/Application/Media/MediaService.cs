@@ -8,15 +8,15 @@ public sealed class MediaService(AppDbContext dbContext) : IMediaService
 {
     private readonly AppDbContext _dbContext = dbContext;
 
-    public async Task<IReadOnlyList<MediaDto>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<FileDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         var items = await _dbContext.Media
             .AsNoTracking()
-            .Where(item => item.DeletedAt != null)
+            .Where(item => item.DeletedAt == null)
             .OrderByDescending(item => item.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        return [.. items.Select(item => new MediaDto(
+        return [.. items.Select(item => new FileDto(
             item.Id,
             item.NodeId,
             item.Name,

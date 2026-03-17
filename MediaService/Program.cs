@@ -12,13 +12,13 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AppDbContext>(opt =>
 {
-    var cs = builder.Configuration.GetConnectionString("Postgres")
+    var connectionString = builder.Configuration.GetConnectionString("Postgres")
              ?? throw new InvalidOperationException("Missing ConnectionStrings:Postgres");
 
-    opt.UseNpgsql(cs);
+    opt.UseNpgsql(connectionString);
 });
 
-builder.Services.AddScoped<IMediaService, MediaService>();
+builder.Services.AddScoped<IMediaService, MediaService.Application.Media.MediaService>();
 
 var app = builder.Build();
 

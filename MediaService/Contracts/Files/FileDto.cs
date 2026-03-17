@@ -1,15 +1,12 @@
-using MediaService.Domain.Enums;
+namespace MediaService.Contracts.Files;
 
-namespace MediaService.Contracts.Media;
-
-public sealed record MediaDto(
+public sealed record FileDto(
     Guid Id,
-    Guid NodeId,
+    Guid ParentId,
     string Name,
     string MimeType,
     long Size,
     string StoragePath,
-    Status Status,
     DateTime CreatedAt,
     DateTime UpdatedAt,
     DateTime? DeletedAt

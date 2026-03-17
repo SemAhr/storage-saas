@@ -6,22 +6,22 @@ namespace MediaService.Data;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<Media> Media => Set<Media>();
+    public DbSet<Domain.Entities.File> Media => Set<Domain.Entities.File>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresEnum<Status>();
 
-        var model = modelBuilder.Entity<Media>();
+        var model = modelBuilder.Entity<Domain.Entities.File>();
 
-        model.HasKey(media => media.Id);
-        model.HasKey(media => media.NodeId);
-        model.Property(media => media.Name).HasMaxLength(255).IsRequired();
-        model.Property(media => media.MimeType).HasMaxLength(128).IsRequired();
-        model.Property(media => media.StoragePath).HasMaxLength(2000).IsRequired();
-        model.Property(media => media.Status).HasDefaultValue(Status.Pending);
-        model.Property(media => media.CreatedAt).HasDefaultValueSql("now() at time zone 'utc'");
-        model.Property(media => media.UpdatedAt).HasDefaultValueSql("now() at time zone 'utc'");
-        model.Property(media => media.DeletedAt).HasDefaultValue(null);
+        model.HasKey(file => file.Id);
+        model.HasKey(file => file.NodeId);
+        model.Property(file => file.Name).HasMaxLength(255).IsRequired();
+        model.Property(file => file.MimeType).HasMaxLength(128).IsRequired();
+        model.Property(file => file.StoragePath).HasMaxLength(2000).IsRequired();
+        model.Property(file => file.Status).HasDefaultValue(Status.Pending);
+        model.Property(file => file.CreatedAt).HasDefaultValueSql("now() at time zone 'utc'");
+        model.Property(file => file.UpdatedAt).HasDefaultValueSql("now() at time zone 'utc'");
+        model.Property(file => file.DeletedAt).HasDefaultValue(null);
     }
 }

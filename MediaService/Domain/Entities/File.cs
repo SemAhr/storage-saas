@@ -2,7 +2,7 @@ using MediaService.Domain.Enums;
 
 namespace MediaService.Domain.Entities;
 
-public sealed class Media
+public sealed class File
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid NodeId { get; set; } = Guid.NewGuid();
@@ -13,5 +13,5 @@ public sealed class Media
     public Status Status { get; set; } = Status.Pending;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime DeletedAt { get; set; }
+    public DateTime? DeletedAt { get; set; } = null;
 }
