@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using MediaService.Api.Endpoints;
-using MediaService.Application.Media;
 using MediaService.Data;
 using MediaService.Domain.Exceptions;
 
@@ -18,7 +17,7 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(connectionString);
 });
 
-builder.Services.AddScoped<IMediaService, MediaService.Application.Media.MediaService>();
+// builder.Services.AddScoped<IMediaService, MediaService.Application.Media.MediaService>();
 
 var app = builder.Build();
 

@@ -1,0 +1,1 @@
+namespace MediaService.Application.Node;

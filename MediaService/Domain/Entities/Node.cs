@@ -14,5 +14,5 @@ public sealed class Node
 
     public Node? Parent { get; set; }
     public ICollection<Node> Children { get; set; } = [];
-    public File? File { get; set; }
+    public FileEntry? File { get; set; }
 }
