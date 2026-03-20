@@ -4,8 +4,6 @@ create type node_type as enum ('file', 'folder');
 
 create type upload_status as enum ('pending', 'completed', 'failed');
 
--- it is needed a worker to chance the file status to 'failed' if the upload is not completed within a certain time frame and also delete the node
-
 create table nodes (
     id uuid primary key default gen_random_uuid(),
     parent_id uuid null,
@@ -26,6 +24,7 @@ create table files (
     size bigint not null,
     storage_url text null unique,
     status upload_status not null default 'pending',
+    expires_at timestamptz not null default now() + interval '30 minutes',
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
 
@@ -55,3 +54,4 @@ create index idx_nodes_parent_id on nodes(parent_id);
 create index idx_nodes_type on nodes(type);
 create index idx_nodes_deleted_at on nodes(deleted_at);
 create index idx_files_status on files(status);
+create index idx_files_expires_at on files(expires_at);

@@ -17,7 +17,8 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
     opt.UseNpgsql(connectionString);
 });
 
-// builder.Services.AddScoped<IMediaService, MediaService.Application.Media.MediaService>();
+builder.Services.AddScoped<MediaService.Application.File.IFileService, MediaService.Application.File.FileService>();
+builder.Services.AddScoped<MediaService.Application.Node.NodeService, MediaService.Application.Node.NodeService>();
 
 var app = builder.Build();
 
@@ -55,6 +56,7 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-app.MapMediaEndpoints();
+app.MapFileEndpoints();
 
+app.Urls.Add("http://localhost:3000");
 app.Run();
