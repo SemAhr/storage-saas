@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using MediaService.Domain.Entities;
-using MediaService.Domain.Enums;
 
 namespace MediaService.Data;
 

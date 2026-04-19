@@ -55,3 +55,23 @@ create index idx_nodes_type on nodes(type);
 create index idx_nodes_deleted_at on nodes(deleted_at);
 create index idx_files_status on files(status);
 create index idx_files_expires_at on files(expires_at);
+
+-- job / worker runnign this query:
+-- update files
+-- set
+--     status = 'failed',
+--     updated_at = now()
+-- where status = 'pending'
+--   and expires_at <= now();
+
+-- update nodes
+-- set
+--     deleted_at = now(),
+--     updated_at = now()
+-- where id in (
+--     select node_id
+--     from files
+--     where status = 'failed'
+--       and expires_at <= now()
+-- )
+-- and deleted_at is null;

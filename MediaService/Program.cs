@@ -1,56 +1,19 @@
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using MediaService.Api.Endpoints;
-using MediaService.Data;
-using MediaService.Domain.Exceptions;
+using MediaService.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
-builder.Services.AddDbContext<AppDbContext>(opt =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("Postgres")
-             ?? throw new InvalidOperationException("Missing ConnectionStrings:Postgres");
-
-    opt.UseNpgsql(connectionString);
-});
-
-builder.Services.AddScoped<MediaService.Application.File.IFileService, MediaService.Application.File.FileService>();
-builder.Services.AddScoped<MediaService.Application.Node.NodeService, MediaService.Application.Node.NodeService>();
+builder.Services
+    .AddAppServices(builder.Configuration)
+    // json policy to camelCase for consistency with JavaScript clients
+    .ConfigureHttpJsonOptions(options => { options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; });
 
 var app = builder.Build();
 
-app.UseExceptionHandler(handler =>
-{
-    handler.Run(async context =>
-    {
-        var ex = context.Features.Get<IExceptionHandlerFeature>()?.Error;
-
-        if (ex is AppException appEx)
-        {
-            context.Response.StatusCode = appEx.StatusCode;
-
-            await context.Response.WriteAsJsonAsync(new
-            {
-                title = appEx.Title,
-                status = appEx.StatusCode,
-                error = appEx.Message
-            });
-
-            return;
-        }
-
-        context.Response.StatusCode = 500;
-        await context.Response.WriteAsJsonAsync(new
-        {
-            title = "Internal Server Error",
-            status = 500,
-            error = "Unexpected error"
-        });
-    });
-});
+app.UseRequestLogging();
+app.UseAppExceptionHandler();
 
 app.UseSwagger();
 app.UseSwaggerUI();

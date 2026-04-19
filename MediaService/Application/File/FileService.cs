@@ -10,7 +10,7 @@ public sealed class FileService(AppDbContext dbContext) : IFileService
 
     public Task<PresignedResponseDto> PresignedUploadAsync(PresignedRequestDto presignedUploadDto, CancellationToken cancellationToken = default)
     {
-        return new Task<PresignedResponseDto>(() => new PresignedResponseDto
+        return Task.FromResult(new PresignedResponseDto
         {
             NodeId = Guid.NewGuid(),
             UploadUrl = "https://example.com/upload",
@@ -21,7 +21,7 @@ public sealed class FileService(AppDbContext dbContext) : IFileService
 
     public Task<SuccessDto> ConfirmUploadAsync(ConfirmUploadDto confirmUploadDto, CancellationToken cancellationToken = default)
     {
-        return new Task<SuccessDto>(() => new SuccessDto
+        return Task.FromResult(new SuccessDto
         {
             Message = "File upload confirmed successfully."
         });
