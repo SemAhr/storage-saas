@@ -5,6 +5,6 @@ namespace MediaService.Data;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<Node> Nodes => Set<Node>();
-    public DbSet<FileEntry> Files => Set<FileEntry>();
+    public DbSet<NodeEntity> Nodes => Set<NodeEntity>();
+    public DbSet<FileEntity> Files => Set<FileEntity>();
 }

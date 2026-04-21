@@ -1,8 +1,9 @@
-using MediaService.Contracts.File;
-using MediaService.Contracts.Node;
+using MediaService.Application.Shared.Nodes;
+using MediaService.Contracts.Files;
+using MediaService.Contracts.Nodes;
 using MediaService.Data;
 
-namespace MediaService.Application.Node;
+namespace MediaService.Application.Nodes;
 
 public sealed class NodeService(AppDbContext dbContext) : INodeService
 {
@@ -17,7 +18,6 @@ public sealed class NodeService(AppDbContext dbContext) : INodeService
     {
         return new Task<NodeDto>(() => new NodeDto
         {
-            ParentId = Guid.NewGuid(),
             Name = "Example Node",
             Type = "Folder",
             File = new FileDto
@@ -36,7 +36,6 @@ public sealed class NodeService(AppDbContext dbContext) : INodeService
         [
             new NodeDto
             {
-                ParentId = parentId,
                 Name = "Child Node 1",
                 Type = "File",
                 File = new FileDto
@@ -49,7 +48,6 @@ public sealed class NodeService(AppDbContext dbContext) : INodeService
             },
             new NodeDto
             {
-                ParentId = parentId,
                 Name = "Child Node 2",
                 Type = "Folder"
             }

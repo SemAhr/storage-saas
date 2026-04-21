@@ -5,7 +5,7 @@ create type node_type as enum ('file', 'folder');
 create type upload_status as enum ('pending', 'completed', 'failed');
 
 create table nodes (
-    id uuid primary key default gen_random_uuid(),
+    id uuid primary key default gen_random_uuid();
     parent_id uuid null,
     name text not null,
     type node_type not null default 'folder',
@@ -16,6 +16,7 @@ create table nodes (
     constraint fk_nodes_parent
         foreign key (parent_id)
         references nodes(id)
+        on delete cascade
 );
 
 create table files (
@@ -24,7 +25,7 @@ create table files (
     size bigint not null,
     storage_url text null unique,
     status upload_status not null default 'pending',
-    expires_at timestamptz not null default now() + interval '30 minutes',
+    upload_expires_at timestamptz not null default now() + interval '15 minutes',
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
 
@@ -33,7 +34,7 @@ create table files (
         references nodes(id),
 
     constraint chk_files_size
-        check (size >= 0),
+        check (size > 0),
 
     constraint chk_files_status_storage_url
         check (
@@ -54,7 +55,7 @@ create index idx_nodes_parent_id on nodes(parent_id);
 create index idx_nodes_type on nodes(type);
 create index idx_nodes_deleted_at on nodes(deleted_at);
 create index idx_files_status on files(status);
-create index idx_files_expires_at on files(expires_at);
+create index idx_files_upload_expires_at on files(upload_expires_at);
 
 -- job / worker runnign this query:
 -- update files

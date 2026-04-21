@@ -1,14 +1,9 @@
-using System.Text.Json;
 using MediaService.Api.Endpoints;
 using MediaService.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
-
-builder.Services
-    .AddAppServices(builder.Configuration)
-    // json policy to camelCase for consistency with JavaScript clients
-    .ConfigureHttpJsonOptions(options => { options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase; });
+builder.Services.AddAppServices(builder.Configuration);
 
 var app = builder.Build();
 

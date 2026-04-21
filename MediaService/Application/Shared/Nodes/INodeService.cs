@@ -1,6 +1,6 @@
-using MediaService.Contracts.Node;
+using MediaService.Contracts.Nodes;
 
-namespace MediaService.Application.Node;
+namespace MediaService.Application.Shared.Nodes;
 
 public interface INodeService
 {

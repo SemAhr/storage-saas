@@ -1,4 +1,4 @@
-namespace MediaService.Contracts.File;
+namespace MediaService.Contracts.Files;
 
 public sealed class PresignedResponseDto
 {

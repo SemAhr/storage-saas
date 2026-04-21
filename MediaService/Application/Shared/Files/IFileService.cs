@@ -1,7 +1,7 @@
-using MediaService.Contracts.File;
+using MediaService.Contracts.Files;
 using MediaService.Contracts.Shared;
 
-namespace MediaService.Application.File;
+namespace MediaService.Application.Shared.Files;
 
 public interface IFileService
 {

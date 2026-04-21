@@ -1,6 +1,5 @@
-using System.ComponentModel.DataAnnotations;
-using MediaService.Application.File;
-using MediaService.Contracts.File;
+using MediaService.Application.Shared.Files;
+using MediaService.Contracts.Files;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MediaService.Api.Endpoints;

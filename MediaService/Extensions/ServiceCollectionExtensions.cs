@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
 using MediaService.Data;
@@ -16,6 +18,12 @@ public static class ServiceCollectionExtensions
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
         services.AddValidation();
+
+        // json policy to camelCase for consistency with JavaScript clients
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+        });
 
         services.Configure<PostgresConfig>(configuration.GetSection(PostgresConfig.SectionName));
         services.Configure<S3Config>(configuration.GetSection(S3Config.SectionName));
@@ -55,39 +63,51 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<IAmazonS3>(serviceProvider =>
         {
-            var s3Config = serviceProvider
+            var s3Options = serviceProvider
                 .GetRequiredService<IOptions<S3Config>>()
                 .Value;
 
-            if (string.IsNullOrWhiteSpace(s3Config.Endpoint))
-                throw new InvalidOperationException("Missing S3:Endpoint");
+            if (string.IsNullOrWhiteSpace(s3Options.BucketName))
+                throw new InvalidOperationException("Missing S3:BucketName");
 
-            if (string.IsNullOrWhiteSpace(s3Config.Region))
-                throw new InvalidOperationException("Missing S3:Region");
-
-            if (string.IsNullOrWhiteSpace(s3Config.AccessKey))
+            if (string.IsNullOrWhiteSpace(s3Options.AccessKey))
                 throw new InvalidOperationException("Missing S3:AccessKey");
 
-            if (string.IsNullOrWhiteSpace(s3Config.SecretKey))
+            if (string.IsNullOrWhiteSpace(s3Options.SecretKey))
                 throw new InvalidOperationException("Missing S3:SecretKey");
 
             var credentials = new BasicAWSCredentials(
-                s3Config.AccessKey,
-                s3Config.SecretKey
+                s3Options.AccessKey,
+                s3Options.SecretKey
             );
 
-            var amazonS3Config = new AmazonS3Config
+            var s3Config = new AmazonS3Config
             {
-                ServiceURL = s3Config.Endpoint,
-                ForcePathStyle = s3Config.ForcePathStyle,
-                AuthenticationRegion = s3Config.Region
+                ForcePathStyle = s3Options.ForcePathStyle
             };
 
-            return new AmazonS3Client(credentials, amazonS3Config);
+            if (!string.IsNullOrWhiteSpace(s3Options.Endpoint))
+            {
+                s3Config.ServiceURL = s3Options.Endpoint;
+                s3Config.AuthenticationRegion = s3Options.Region;
+            }
+            else
+            {
+                s3Config.RegionEndpoint = RegionEndpoint.GetBySystemName(s3Options.Region);
+            }
+
+            return new AmazonS3Client(credentials, s3Config);
         });
 
-        services.AddScoped<MediaService.Application.File.IFileService, MediaService.Application.File.FileService>();
-        services.AddScoped<MediaService.Application.Node.NodeService, MediaService.Application.Node.NodeService>();
+        services.AddSingleton<MediaService.Application.Shared.Storage.IStorageService, MediaService.Infrastructure.Storage.StorageService>();
+
+        // repositories
+        services.AddScoped<MediaService.Application.Shared.Nodes.INodeRepository, MediaService.Infrastructure.Persistence.Repositories.Nodes.NodeRepository>();
+        services.AddScoped<MediaService.Application.Shared.Files.IFileRepository, MediaService.Infrastructure.Persistence.Repositories.Files.FileRepository>();
+
+        // services
+        services.AddScoped<MediaService.Application.Shared.Files.IFileService, MediaService.Application.Files.FileService>();
+        services.AddScoped<MediaService.Application.Shared.Nodes.INodeService, MediaService.Application.Nodes.NodeService>();
 
         return services;
     }

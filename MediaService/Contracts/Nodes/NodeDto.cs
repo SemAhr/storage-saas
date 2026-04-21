@@ -1,11 +1,12 @@
-using MediaService.Contracts.File;
+using MediaService.Contracts.Files;
 
-namespace MediaService.Contracts.Node;
+namespace MediaService.Contracts.Nodes;
 
 public sealed class NodeDto
 {
-    public Guid? ParentId { get; init; }
+    public string? ParentId { get; init; }
     public string Name { get; init; } = null!;
     public string Type { get; init; } = null!;
+    public string Status { get; init; } = null!;
     public FileDto? File { get; init; }
 };

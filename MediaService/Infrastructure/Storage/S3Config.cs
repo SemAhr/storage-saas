@@ -8,7 +8,8 @@ public sealed class S3Config
     public string AccessKey { get; set; } = string.Empty;
     public string SecretKey { get; set; } = string.Empty;
     public string BucketName { get; set; } = string.Empty;
-    public int PresignedExpiration { get; set; } = 0; // ms
+    public int PresignedExpiration { get; set; } = 15; // minutes
+    public int DownloadExpiration { get; set; } = 10; // minutes
 
     // s3 compatible
     public string Endpoint { get; set; } = string.Empty;

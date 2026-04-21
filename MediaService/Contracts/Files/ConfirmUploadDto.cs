@@ -1,6 +1,6 @@
 using MediaService.Shared.Validations;
 
-namespace MediaService.Contracts.File;
+namespace MediaService.Contracts.Files;
 
 public sealed class ConfirmUploadDto
 {
