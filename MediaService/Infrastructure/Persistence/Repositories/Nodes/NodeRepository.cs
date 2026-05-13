@@ -1,7 +1,6 @@
 using MediaService.Application.Shared.Nodes;
 using MediaService.Data;
 using MediaService.Domain.Entities;
-using MediaService.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace MediaService.Infrastructure.Persistence.Repositories.Nodes;
@@ -10,29 +9,23 @@ public sealed class NodeRepository(AppDbContext dbContext) : INodeRepository
 {
     private readonly AppDbContext _dbContext = dbContext;
 
-    public async Task<NodeEntity> AddAsync(NodeEntity node, CancellationToken cancellationToken = default)
+    public async Task<NodeEntity> AddAsync(NodeEntity node, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(node);
-        cancellationToken.ThrowIfCancellationRequested();
-
         _dbContext.Nodes.Add(node);
-        var affectedRows = await _dbContext.SaveChangesAsync(cancellationToken);
-        if (affectedRows == 0)
-        {
-            throw new Exception("Failed to add node to the database.");
-        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return node;
     }
 
-    public Task<NodeEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<NodeEntity?> GetByIdAsync(Guid? id, CancellationToken cancellationToken = default)
     {
         if (id == Guid.Empty)
         {
             throw new ArgumentException("Node id cannot be empty.", nameof(id));
         }
 
-        return _dbContext.Nodes
+        return await _dbContext.Nodes
             .AsNoTracking()
             .Include(node => node.File)
             .Include(node => node.Children
@@ -42,6 +35,16 @@ public sealed class NodeRepository(AppDbContext dbContext) : INodeRepository
             .FirstOrDefaultAsync(
                 node => node.Id == id && node.DeletedAt == null,
                 cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<NodeEntity>> GetChildrenAsync(Guid? parentId, CancellationToken cancellationToken = default)
+    {
+        return await _dbContext.Nodes
+            .AsNoTracking()
+            .Where(node => node.ParentId == parentId && node.DeletedAt == null)
+            .Include(node => node.File)
+            .OrderBy(node => node.Name)
+            .ToListAsync(cancellationToken);
     }
 
     public async Task<bool> RenameAsync(Guid id, string newName, CancellationToken cancellationToken = default)
@@ -82,23 +85,20 @@ public sealed class NodeRepository(AppDbContext dbContext) : INodeRepository
 
     public async Task<bool> SoftDeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var node = await _dbContext.Nodes
-            .FirstOrDefaultAsync(currentNode => currentNode.Id == id, cancellationToken);
-
-        if (node is null)
+        if (id == Guid.Empty)
         {
-            return false;
+            throw new ArgumentException("Node id cannot be empty.", nameof(id));
         }
 
-        node.DeletedAt = DateTime.UtcNow;
-        node.UpdatedAt = DateTime.UtcNow;
+        var utcNow = DateTime.UtcNow;
 
-        var success = await _dbContext.SaveChangesAsync(cancellationToken);
-        if (success == 0)
-        {
-            throw new Exception("Failed to soft delete node in the database.");
-        }
+        var affectedRows = await _dbContext.Nodes
+            .Where(node => node.Id == id && node.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(node => node.DeletedAt, utcNow)
+                .SetProperty(node => node.UpdatedAt, utcNow),
+                cancellationToken);
 
-        return true;
+        return affectedRows > 0;
     }
 }

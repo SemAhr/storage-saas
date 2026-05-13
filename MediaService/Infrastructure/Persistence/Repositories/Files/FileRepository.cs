@@ -24,6 +24,11 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
 
     public async Task<bool> UpdateStatusAsync(Guid id, UploadStatus status, CancellationToken cancellationToken = default)
     {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("Node id cannot be empty.", nameof(id));
+        }
+
         var affectedRows = await _dbContext.Files
             .Where(file => file.NodeId == id)
             .ExecuteUpdateAsync(setters => setters
