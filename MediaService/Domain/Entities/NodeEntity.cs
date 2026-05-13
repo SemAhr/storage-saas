@@ -13,6 +13,6 @@ public sealed class NodeEntity
     public DateTime? DeletedAt { get; set; }
 
     public NodeEntity? Parent { get; set; }
-    public ICollection<NodeEntity>? Children { get; set; }
+    public ICollection<NodeEntity> Children { get; set; } = [];
     public FileEntity? File { get; set; }
 }

@@ -1,9 +1,13 @@
 using System.ComponentModel.DataAnnotations;
+using MediaService.Shared.Validations;
 
 namespace MediaService.Contracts.Files;
 
 public sealed class PresignedRequestDto
 {
+    [Guid]
+    public string ParentId { get; init; } = string.Empty;
+
     [Required]
     [MinLength(1)]
     public string FileName { get; init; } = null!;

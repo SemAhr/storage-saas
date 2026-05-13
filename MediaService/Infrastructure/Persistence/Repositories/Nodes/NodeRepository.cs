@@ -11,58 +11,59 @@ public sealed class NodeRepository(AppDbContext dbContext) : INodeRepository
 {
     private readonly AppDbContext _dbContext = dbContext;
 
-    public async Task<NodeEntity> AddAsync(NodeDto nodeDto, CancellationToken cancellationToken = default)
+    public async Task<NodeEntity> AddAsync(NodeEntity node, CancellationToken cancellationToken = default)
     {
-        var node = new NodeEntity
-        {
-            Name = nodeDto.Name,
-            Type = !string.IsNullOrEmpty(nodeDto.Type) ? Enum.Parse<NodeType>(nodeDto.Type, true) : null,
-            ParentId = !string.IsNullOrEmpty(nodeDto.ParentId) ? Guid.Parse(nodeDto.ParentId) : null,
-            File = nodeDto.File != null ? new FileEntity
-            {
-                MimeType = nodeDto.File.MimeType,
-                Size = nodeDto.File.Size
-            } : null
-        };
+        ArgumentNullException.ThrowIfNull(node);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        var savedNode = await _dbContext.Nodes.AddAsync(node, cancellationToken);
-        var success = await _dbContext.SaveChangesAsync(cancellationToken);
-        if (success == 0)
+        _dbContext.Nodes.Add(node);
+        var affectedRows = await _dbContext.SaveChangesAsync(cancellationToken);
+        if (affectedRows == 0)
         {
             throw new Exception("Failed to add node to the database.");
         }
 
-        return savedNode.Entity;
+        return node;
     }
 
     public Task<NodeEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("Node id cannot be empty.", nameof(id));
+        }
+
         return _dbContext.Nodes
-            // .Include(node => node.File)
-            .Include(node => node.Children)
-            .FirstOrDefaultAsync(node => node.Id == id, cancellationToken);
+            .AsNoTracking()
+            .Include(node => node.File)
+            .Include(node => node.Children
+                .Where(childNode => childNode.DeletedAt == null)
+                .OrderBy(childNode => childNode.Name))
+            .ThenInclude(childNode => childNode.File)
+            .FirstOrDefaultAsync(
+                node => node.Id == id && node.DeletedAt == null,
+                cancellationToken);
     }
 
-    public async Task<NodeEntity?> UpdateAsync(Guid id, UpdateNodeDto node, CancellationToken cancellationToken = default)
+    public async Task<NodeEntity?> UpdateAsync(Guid id, NodeEntity node, CancellationToken cancellationToken = default)
     {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("Node id cannot be empty.", nameof(id));
+        }
+
+        ArgumentNullException.ThrowIfNull(node);
+
         var existingNode = await _dbContext.Nodes
-            .FirstOrDefaultAsync(currentNode => currentNode.Id == id, cancellationToken);
+               .FirstOrDefaultAsync(
+                   currentNode => currentNode.Id == id && currentNode.DeletedAt == null,
+                   cancellationToken);
 
         if (existingNode is null)
         {
             return null;
         }
 
-        existingNode.Name = node.Name ?? existingNode.Name;
-        existingNode.UpdatedAt = DateTime.UtcNow;
-
-        var success = await _dbContext.SaveChangesAsync(cancellationToken);
-        if (success == 0)
-        {
-            throw new Exception("Failed to update node in the database.");
-        }
-
-        return existingNode;
     }
 
     public async Task<bool> SoftDeleteAsync(Guid id, CancellationToken cancellationToken = default)

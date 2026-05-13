@@ -11,9 +11,6 @@ public sealed class GuidAttribute : ValidationAttribute
 
     public override bool IsValid(object? value)
     {
-        if (value is null)
-            return false;
-
         if (value is Guid guid)
             return guid != Guid.Empty;
 

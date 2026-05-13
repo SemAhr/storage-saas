@@ -4,6 +4,7 @@ using MediaService.Application.Shared.Storage;
 using MediaService.Contracts.Files;
 using MediaService.Contracts.Nodes;
 using MediaService.Contracts.Shared;
+using MediaService.Domain.Entities;
 using MediaService.Domain.Enums;
 using MediaService.Domain.Exceptions;
 
@@ -17,23 +18,24 @@ public sealed class FileService(INodeRepository nodeRepository, IFileRepository 
 
     public async Task<PresignedResponseDto> PresignedUploadAsync(PresignedRequestDto presignedUploadDto, CancellationToken cancellationToken = default)
     {
-        // Create a new node in the database with status "Pending" and save in the database
-        var nodeDto = new NodeDto
+        var node = new NodeEntity
         {
+            ParentId = string.IsNullOrWhiteSpace(presignedUploadDto.ParentId)
+                ? null
+                : Guid.Parse(presignedUploadDto.ParentId),
             Name = presignedUploadDto.FileName,
-            Type = NodeType.File.ToString(),
-            Status = UploadStatus.Pending.ToString(),
-            File = new FileDto
+            Type = NodeType.File,
+            File = new FileEntity
             {
                 MimeType = presignedUploadDto.MimeType,
-                Size = presignedUploadDto.Size
+                Size = presignedUploadDto.Size,
             }
         };
 
-        var node = await _nodeRepository.AddAsync(nodeDto, cancellationToken);
+        var savedNode = await _nodeRepository.AddAsync(node, cancellationToken);
 
         // Generate a presigned URL for the file upload using the storage service and return it to the client
-        var key = _storageService.GenerateS3Key(presignedUploadDto.FileName, node.Id);
+        var key = _storageService.GenerateS3Key(presignedUploadDto.FileName, savedNode.Id);
         var uploadUrl = await _storageService.GenerateUploadUrlAsync(key, presignedUploadDto.MimeType, cancellationToken);
 
         return new PresignedResponseDto
