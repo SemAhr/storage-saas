@@ -12,28 +12,25 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
 
     public Task<FileEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        return _dbContext.Files.FirstOrDefaultAsync(file => file.NodeId == id, cancellationToken);
+        return _dbContext.Files
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                file =>
+                    file.NodeId == id &&
+                    file.Node != null &&
+                    file.Node.DeletedAt == null,
+                cancellationToken);
     }
 
-    public async Task<FileEntity?> UpdateStatusAsync(Guid id, UploadStatus status, CancellationToken cancellationToken = default)
+    public async Task<bool> UpdateStatusAsync(Guid id, UploadStatus status, CancellationToken cancellationToken = default)
     {
-        var existingFile = await _dbContext.Files
-            .FirstOrDefaultAsync(file => file.NodeId == id, cancellationToken);
+        var affectedRows = await _dbContext.Files
+            .Where(file => file.NodeId == id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(file => file.Status, status)
+                .SetProperty(file => file.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
 
-        if (existingFile is null)
-        {
-            return null;
-        }
-
-        existingFile.Status = status;
-        existingFile.UpdatedAt = DateTime.UtcNow;
-
-        var success = await _dbContext.SaveChangesAsync(cancellationToken);
-        if (success == 0)
-        {
-            throw new Exception("Failed to update file status in the database.");
-        }
-
-        return existingFile;
+        return affectedRows > 0;
     }
 }

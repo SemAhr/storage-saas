@@ -13,10 +13,7 @@ create table nodes (
     updated_at timestamptz not null default now(),
     deleted_at timestamptz null,
 
-    constraint fk_nodes_parent
-        foreign key (parent_id)
-        references nodes(id)
-        on delete cascade
+    constraint fk_nodes_parent foreign key (parent_id) references nodes(id) on delete cascade
 );
 
 create table files (
@@ -29,13 +26,8 @@ create table files (
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
 
-    constraint fk_files_node
-        foreign key (node_id)
-        references nodes(id),
-
-    constraint chk_files_size
-        check (size > 0),
-
+    constraint fk_files_node foreign key (node_id) references nodes(id),
+    constraint chk_files_size check (size > 0),
     constraint chk_files_status_storage_url
         check (
             (status = 'completed' and storage_url is not null) or
@@ -43,13 +35,8 @@ create table files (
         )
 );
 
-create unique index uq_nodes_root_name_active
-on nodes(name)
-where parent_id is null and deleted_at is null;
-
-create unique index uq_nodes_parent_name_active
-on nodes(parent_id, name)
-where parent_id is not null and deleted_at is null;
+create unique index uq_nodes_root_name_active on nodes(name) where parent_id is null and deleted_at is null;
+create unique index uq_nodes_parent_name_active on nodes(parent_id, name) where parent_id is not null and deleted_at is null;
 
 create index idx_nodes_parent_id on nodes(parent_id);
 create index idx_nodes_type on nodes(type);

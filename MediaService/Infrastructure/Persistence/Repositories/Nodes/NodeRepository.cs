@@ -1,5 +1,4 @@
 using MediaService.Application.Shared.Nodes;
-using MediaService.Contracts.Nodes;
 using MediaService.Data;
 using MediaService.Domain.Entities;
 using MediaService.Domain.Enums;
@@ -45,25 +44,40 @@ public sealed class NodeRepository(AppDbContext dbContext) : INodeRepository
                 cancellationToken);
     }
 
-    public async Task<NodeEntity?> UpdateAsync(Guid id, NodeEntity node, CancellationToken cancellationToken = default)
+    public async Task<bool> RenameAsync(Guid id, string newName, CancellationToken cancellationToken = default)
     {
         if (id == Guid.Empty)
         {
             throw new ArgumentException("Node id cannot be empty.", nameof(id));
         }
 
-        ArgumentNullException.ThrowIfNull(node);
+        ArgumentNullException.ThrowIfNull(newName);
 
-        var existingNode = await _dbContext.Nodes
-               .FirstOrDefaultAsync(
-                   currentNode => currentNode.Id == id && currentNode.DeletedAt == null,
-                   cancellationToken);
+        var affectedRows = await _dbContext.Nodes
+            .Where(node => node.Id == id && node.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(node => node.Name, newName)
+                .SetProperty(node => node.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
 
-        if (existingNode is null)
+        return affectedRows > 0;
+    }
+
+    public async Task<bool> MoveAsync(Guid id, Guid? newParentId, CancellationToken cancellationToken = default)
+    {
+        if (id == Guid.Empty)
         {
-            return null;
+            throw new ArgumentException("Node id cannot be empty.", nameof(id));
         }
 
+        var affectedRows = await _dbContext.Nodes
+            .Where(node => node.Id == id && node.DeletedAt == null)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(node => node.ParentId, newParentId)
+                .SetProperty(node => node.UpdatedAt, DateTime.UtcNow),
+                cancellationToken);
+
+        return affectedRows > 0;
     }
 
     public async Task<bool> SoftDeleteAsync(Guid id, CancellationToken cancellationToken = default)
