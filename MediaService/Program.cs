@@ -1,5 +1,6 @@
-using MediaService.Api.Endpoints;
-using MediaService.Extensions;
+using MediaService.Application.Extensions;
+using MediaService.Presentation.Endpoints.Files;
+using MediaService.Presentation.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

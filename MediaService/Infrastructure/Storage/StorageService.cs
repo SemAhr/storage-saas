@@ -1,6 +1,6 @@
 using Amazon.S3;
 using Amazon.S3.Model;
-using MediaService.Application.Shared.Storage;
+using MediaService.Application.Storage;
 using Microsoft.Extensions.Options;
 using System.Text;
 
@@ -21,43 +21,65 @@ public sealed class StorageService(IAmazonS3 s3Client, IOptions<S3Config> s3Opti
         return $"media/{dateSegment}/{nodeId:N}-{baseName}{extension}";
     }
 
-    public Task<string> GenerateUploadUrlAsync(string key, string mimeType, CancellationToken cancellationToken = default)
+    public UrlGenerated GenerateUploadUrl(string key, string mimeType)
     {
+        var expiration = DateTime.UtcNow.AddMinutes(_s3Config.PresignedExpiration);
+
         var request = new GetPreSignedUrlRequest
         {
             BucketName = _s3Config.BucketName,
             Key = key,
             Verb = HttpVerb.PUT,
-            Expires = DateTime.UtcNow.AddMinutes(_s3Config.PresignedExpiration),
+            Expires = expiration,
             ContentType = mimeType
         };
 
-        string presignedUrl = _s3Client.GetPreSignedURL(request);
-
-        return Task.FromResult(presignedUrl);
+        return new UrlGenerated
+        (
+            _s3Client.GetPreSignedURL(request),
+            expiration
+        );
     }
 
-    public Task<string> GenerateDownloadUrlAsync(string key, CancellationToken cancellationToken = default)
+    public UrlGenerated GenerateDownloadUrl(string key)
     {
+        var expiration = DateTime.UtcNow.AddMinutes(_s3Config.DownloadExpiration);
+
         var request = new GetPreSignedUrlRequest
         {
             BucketName = _s3Config.BucketName,
             Key = key,
             Verb = HttpVerb.GET,
-            Expires = DateTime.UtcNow.AddMinutes(_s3Config.DownloadExpiration)
+            Expires = expiration
         };
 
-        string presignedUrl = _s3Client.GetPreSignedURL(request);
-
-        return Task.FromResult(presignedUrl);
+        return new UrlGenerated
+        (
+            _s3Client.GetPreSignedURL(request),
+            expiration
+        );
     }
 
-    public async Task DeleteFileAsync(string key, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteFileAsync(string key, CancellationToken cancellationToken = default)
     {
-        await _s3Client.DeleteObjectAsync(
-            _s3Config.BucketName,
-            key,
-            cancellationToken);
+        try
+        {
+            await _s3Client.DeleteObjectAsync(
+                _s3Config.BucketName,
+                key,
+                cancellationToken);
+
+            return true;
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // If the object is not found, we can consider it as already deleted, so we return true.
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private static string SanitizeFileName(string fileName)
