@@ -1,11 +1,6 @@
-using System.ComponentModel.DataAnnotations;
-using MediaService.Shared.Validations;
-
 namespace MediaService.Presentation.Contracts.Files;
 
 public sealed class ConfirmUploadDto
 {
-    [Required]
-    [Guid]
-    public string NodeId { get; init; } = null!;
+    public required Guid NodeId { get; init; }
 };

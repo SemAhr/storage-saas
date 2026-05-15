@@ -3,8 +3,9 @@ using MediaService.Presentation.Contracts.Shared;
 
 namespace MediaService.Application.Nodes;
 
-public interface INodeService
+public interface INodesService
 {
+    Task<NodeDto> CreateFolderAsync(Guid? parentId, string name, CancellationToken cancellationToken = default);
     Task<NodeDto> GetByIdAsync(Guid nodeId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NodeDto>> GetChildrenAsync(Guid parentId, CancellationToken cancellationToken = default);
     Task<SuccessDto> RenameAsync(Guid id, string newName, CancellationToken cancellationToken = default);

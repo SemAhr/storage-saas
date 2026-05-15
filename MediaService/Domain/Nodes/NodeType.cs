@@ -2,6 +2,6 @@ namespace MediaService.Domain.Nodes;
 
 public enum NodeType
 {
-    Folder,
-    File
+    Folder = 0,
+    File = 1
 }

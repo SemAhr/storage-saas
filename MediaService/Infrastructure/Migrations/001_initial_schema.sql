@@ -5,7 +5,7 @@ create type node_type as enum ('file', 'folder');
 create type upload_status as enum ('pending', 'completed', 'failed');
 
 create table nodes (
-    id uuid primary key default gen_random_uuid();
+    id uuid primary key default gen_random_uuid(),
     parent_id uuid null,
     name text not null,
     type node_type not null default 'folder',
@@ -20,7 +20,7 @@ create table files (
     node_id uuid primary key,
     mime_type text not null,
     size bigint not null,
-    storage_url text null unique,
+    storage_key text null unique,
     status upload_status not null default 'pending',
     upload_expires_at timestamptz not null default now() + interval '15 minutes',
     created_at timestamptz not null default now(),
@@ -28,10 +28,10 @@ create table files (
 
     constraint fk_files_node foreign key (node_id) references nodes(id),
     constraint chk_files_size check (size > 0),
-    constraint chk_files_status_storage_url
+    constraint chk_files_status_storage_key
         check (
-            (status = 'completed' and storage_url is not null) or
-            (status in ('pending', 'failed') and storage_url is null)
+            (status = 'completed' and storage_key is not null) or
+            (status in ('pending', 'failed') and storage_key is null)
         )
 );
 

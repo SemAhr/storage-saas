@@ -1,21 +1,17 @@
 using System.ComponentModel.DataAnnotations;
-using MediaService.Shared.Validations;
 
 namespace MediaService.Presentation.Contracts.Files;
 
 public sealed class PresignedRequestDto
 {
-    [Guid]
-    public string ParentId { get; init; } = string.Empty;
+    public Guid? ParentId { get; init; }
 
-    [Required]
     [MinLength(1)]
-    public string FileName { get; init; } = null!;
+    public required string FileName { get; init; }
 
-    [Required]
     [MinLength(1)]
-    public string MimeType { get; init; } = null!;
+    public required string MimeType { get; init; }
 
     [Range(1, long.MaxValue, ErrorMessage = "Size must be greater than 0.")]
-    public long Size { get; init; } = 0;
+    public required long Size { get; init; }
 };

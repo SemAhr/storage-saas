@@ -1,12 +1,13 @@
+using MediaService.Domain.Nodes;
 using MediaService.Presentation.Contracts.Files;
 
 namespace MediaService.Presentation.Contracts.Nodes;
 
 public sealed class NodeDto
 {
-    public string Id { get; init; } = null!;
+    public required Guid Id { get; init; }
     public string? ParentId { get; init; }
-    public string Name { get; init; } = null!;
-    public string Type { get; init; } = null!;
+    public required string Name { get; init; }
+    public required NodeType Type { get; init; }
     public FileDto? File { get; init; }
 };

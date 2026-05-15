@@ -2,6 +2,8 @@ using System.Text.Json;
 using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
+using MediaService.Domain.Files;
+using MediaService.Domain.Nodes;
 using MediaService.Infrastructure.Database;
 using MediaService.Infrastructure.Persistence;
 using MediaService.Infrastructure.Storage;
@@ -58,7 +60,13 @@ public static class ServiceCollectionExtensions
                 Password = postgresConfig.Password
             };
 
-            options.UseNpgsql(connectionStringBuilder.ConnectionString);
+            options.UseNpgsql(connectionStringBuilder.ConnectionString,
+                npgsqlOptions =>
+                {
+                    npgsqlOptions
+                        .MapEnum<NodeType>("node_type")
+                        .MapEnum<UploadStatus>("upload_status");
+                });
         });
 
         services.AddSingleton<IAmazonS3>(serviceProvider =>
@@ -107,7 +115,7 @@ public static class ServiceCollectionExtensions
 
         // services
         services.AddScoped<MediaService.Application.Files.IFileService, MediaService.Application.Files.FileService>();
-        services.AddScoped<MediaService.Application.Nodes.INodeService, MediaService.Application.Nodes.NodeService>();
+        services.AddScoped<MediaService.Application.Nodes.INodesService, MediaService.Application.Nodes.NodesService>();
 
         return services;
     }
