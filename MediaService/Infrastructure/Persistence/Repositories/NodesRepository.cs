@@ -11,9 +11,7 @@ public sealed class NodeRepository(AppDbContext dbContext) : INodeRepository
     public async Task<NodeEntity> AddAsync(NodeEntity node, CancellationToken cancellationToken)
     {
         _dbContext.Nodes.Add(node);
-
         await _dbContext.SaveChangesAsync(cancellationToken);
-
         return node;
     }
 

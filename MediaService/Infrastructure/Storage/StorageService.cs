@@ -6,10 +6,27 @@ using System.Text;
 
 namespace MediaService.Infrastructure.Storage;
 
-public sealed class StorageService(IAmazonS3 s3Client, IOptions<S3Config> s3Options) : IStorageService
+public sealed class StorageService(IAmazonS3 s3Client, IOptions<S3Options> s3Options) : IStorageService
 {
     private readonly IAmazonS3 _s3Client = s3Client;
-    private readonly S3Config _s3Config = s3Options.Value;
+    private readonly S3Options _s3Config = s3Options.Value;
+
+    public static long CalculateBasePartSize(long fileSize, long defaultPartSize, long minimumPartSize, long maximumPartSize, int maximumPartsCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(fileSize);
+
+        var requiredPartSize = (fileSize + maximumPartsCount - 1) / maximumPartsCount;
+
+        var selectedPartSize = Math.Max(defaultPartSize, requiredPartSize);
+        selectedPartSize = Math.Max(selectedPartSize, minimumPartSize);
+
+        if (selectedPartSize > maximumPartSize)
+        {
+            throw new InvalidOperationException("File is too large for multipart upload.");
+        }
+
+        return selectedPartSize;
+    }
 
     public string GenerateS3Key(string fileName, Guid nodeId)
     {
@@ -21,43 +38,31 @@ public sealed class StorageService(IAmazonS3 s3Client, IOptions<S3Config> s3Opti
         return $"media/{dateSegment}/{nodeId:N}-{baseName}{extension}";
     }
 
-    public UrlGenerated GenerateUploadUrl(string key, string mimeType)
+    public string GenerateUploadUrl(string key, string mimeType, DateTime expiresAt)
     {
-        var expiration = DateTime.UtcNow.AddMinutes(_s3Config.PresignedExpiration);
-
         var request = new GetPreSignedUrlRequest
         {
             BucketName = _s3Config.BucketName,
             Key = key,
             Verb = HttpVerb.PUT,
-            Expires = expiration,
+            Expires = expiresAt,
             ContentType = mimeType
         };
 
-        return new UrlGenerated
-        (
-            _s3Client.GetPreSignedURL(request),
-            expiration
-        );
+        return _s3Client.GetPreSignedURL(request);
     }
 
-    public UrlGenerated GenerateDownloadUrl(string key)
+    public string GenerateDownloadUrl(string key, DateTime expiresAt)
     {
-        var expiration = DateTime.UtcNow.AddMinutes(_s3Config.DownloadExpiration);
-
         var request = new GetPreSignedUrlRequest
         {
             BucketName = _s3Config.BucketName,
             Key = key,
             Verb = HttpVerb.GET,
-            Expires = expiration
+            Expires = expiresAt
         };
 
-        return new UrlGenerated
-        (
-            _s3Client.GetPreSignedURL(request),
-            expiration
-        );
+        return _s3Client.GetPreSignedURL(request);
     }
 
     public async Task<bool> DeleteFileAsync(string key, CancellationToken cancellationToken = default)

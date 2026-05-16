@@ -2,6 +2,7 @@ using System.Text.Json;
 using Amazon;
 using Amazon.Runtime;
 using Amazon.S3;
+using MediaService.Application.Files;
 using MediaService.Domain.Files;
 using MediaService.Domain.Nodes;
 using MediaService.Infrastructure.Database;
@@ -27,8 +28,21 @@ public static class ServiceCollectionExtensions
             options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         });
 
+        services
+            .AddOptions<FileConfig>()
+            .Bind(configuration.GetSection(FileConfig.SectionName))
+            .Validate(fileConfig => fileConfig.UploadExpiration > TimeSpan.Zero,
+                "Files:UploadExpiration must be greater than zero.")
+            .Validate(fileConfig => fileConfig.UploadExpiration <= TimeSpan.FromHours(24),
+                "Files:DownloadExpiration must not be greater than 24 hours.")
+            .Validate(fileConfig => fileConfig.DownloadExpiration > TimeSpan.Zero,
+                "Files:DownloadExpiration must be greater than zero.")
+            .Validate(fileConfig => fileConfig.DownloadExpiration <= TimeSpan.FromHours(24),
+                "Files:DownloadExpiration must not be greater than 24 hours.")
+            .ValidateOnStart();
+
         services.Configure<PostgresConfig>(configuration.GetSection(PostgresConfig.SectionName));
-        services.Configure<S3Config>(configuration.GetSection(S3Config.SectionName));
+        services.Configure<S3Options>(configuration.GetSection(S3Options.SectionName));
 
         services.AddDbContext<AppDbContext>((serviceProvider, options) =>
         {
@@ -72,7 +86,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAmazonS3>(serviceProvider =>
         {
             var s3Options = serviceProvider
-                .GetRequiredService<IOptions<S3Config>>()
+                .GetRequiredService<IOptions<S3Options>>()
                 .Value;
 
             if (string.IsNullOrWhiteSpace(s3Options.BucketName))

@@ -1,3 +1,3 @@
 namespace MediaService.Application.Storage;
 
-public sealed record UrlGenerated(string Url, DateTime Expiration);
+public sealed record UrlGenerated(string Url, DateTime ExpiresAt);
