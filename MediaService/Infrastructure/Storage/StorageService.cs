@@ -28,17 +28,29 @@ public sealed class StorageService(IAmazonS3 s3Client, IOptions<S3Options> s3Opt
         return selectedPartSize;
     }
 
-    public string GenerateS3Key(string fileName, Guid nodeId)
+    public string GenerateStorageKey(string fileName, Guid nodeId)
     {
-        string safeFileName = SanitizeFileName(fileName);
-        string extension = Path.GetExtension(safeFileName);
-        string baseName = Path.GetFileNameWithoutExtension(safeFileName);
-        string dateSegment = DateTime.UtcNow.ToString("yyyy/MM");
+        if (nodeId == Guid.Empty)
+        {
+            throw new ArgumentException("Node id cannot be empty.", nameof(nodeId));
+        }
 
-        return $"media/{dateSegment}/{nodeId:N}-{baseName}{extension}";
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            throw new ArgumentException("File name cannot be empty.", nameof(fileName));
+        }
+
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(extension))
+        {
+            throw new ArgumentException("File extension is required.", nameof(fileName));
+        }
+
+        return $"media/{nodeId:N}/original{extension}";
     }
 
-    public string GenerateUploadUrl(string key, string mimeType, DateTime expiresAt)
+    public async Task<string> GenerateSingleUploadUrlAsync(string key, string mimeType, DateTime expiresAt)
     {
         var request = new GetPreSignedUrlRequest
         {
@@ -49,7 +61,20 @@ public sealed class StorageService(IAmazonS3 s3Client, IOptions<S3Options> s3Opt
             ContentType = mimeType
         };
 
-        return _s3Client.GetPreSignedURL(request);
+        return await _s3Client.GetPreSignedURLAsync(request);
+    }
+
+    public async Task<string> GenerateMultipartUploadUrlAsync(string key, string mimeType, DateTime expiresAt)
+    {
+        var request = new InitiateMultipartUploadRequest
+        {
+            BucketName = _s3Config.BucketName,
+            Key = key,
+            ContentType = mimeType
+        };
+
+        var response = await _s3Client.InitiateMultipartUploadAsync(request);
+        return response.UploadId;
     }
 
     public string GenerateDownloadUrl(string key, DateTime expiresAt)
@@ -85,29 +110,5 @@ public sealed class StorageService(IAmazonS3 s3Client, IOptions<S3Options> s3Opt
         {
             return false;
         }
-    }
-
-    private static string SanitizeFileName(string fileName)
-    {
-        if (string.IsNullOrWhiteSpace(fileName))
-            throw new ArgumentException("File name is required.", nameof(fileName));
-
-        string onlyFileName = Path.GetFileName(fileName);
-        var invalidCharacters = Path.GetInvalidFileNameChars();
-
-        var builder = new StringBuilder(onlyFileName.Length);
-
-        foreach (char currentCharacter in onlyFileName)
-        {
-            bool isInvalid = invalidCharacters.Contains(currentCharacter);
-            builder.Append(isInvalid ? '-' : currentCharacter);
-        }
-
-        string sanitizedFileName = builder.ToString().Trim();
-
-        if (string.IsNullOrWhiteSpace(sanitizedFileName))
-            throw new ArgumentException("File name is invalid after sanitization.", nameof(fileName));
-
-        return sanitizedFileName;
     }
 }

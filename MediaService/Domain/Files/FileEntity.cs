@@ -13,6 +13,4 @@ public sealed class FileEntity
     public DateTime UpdatedAt { get; set; }
 
     public NodeEntity? Node { get; set; }
-    public ICollection<FileUploadSessionEntity> UploadSessions { get; set; } = [];
-    public ICollection<FileUploadEventEntity> UploadEvents { get; set; } = [];
 }

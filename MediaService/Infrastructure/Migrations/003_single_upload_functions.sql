@@ -7,10 +7,7 @@ create or replace function create_single_upload_session(
     p_object_key text,
     p_expires_at timestamptz
 )
-returns table (
-    node_id uuid,
-    session_id uuid
-)
+returns uuid
 language plpgsql
 as $$
 declare
@@ -115,10 +112,7 @@ begin
         )
     );
 
-    return query
-    select
-        p_node_id,
-        v_session_id;
+    return v_session_id;
 end;
 $$;
 

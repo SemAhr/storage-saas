@@ -2,10 +2,11 @@ using System.ComponentModel.DataAnnotations;
 
 namespace MediaService.Presentation.Contracts.Nodes;
 
-public sealed class CreateFolderDto
+public sealed record CreateFolderDto
 {
-    public Guid? ParentId { get; set; }
+    public Guid? ParentId { get; init; }
 
-    [MinLength(1)]
-    public required string Name { get; set; }
+    [Required(ErrorMessage = "Name is required.")]
+    [StringLength(255, ErrorMessage = "Name cannot exceed 255 characters.")]
+    public required string Name { get; init; }
 }

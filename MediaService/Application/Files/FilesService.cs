@@ -6,62 +6,112 @@ using MediaService.Domain.Nodes;
 using MediaService.Presentation.Contracts.Files;
 using MediaService.Presentation.Contracts.Shared;
 using Microsoft.Extensions.Options;
+using OneOf;
 
 namespace MediaService.Application.Files;
 
 public sealed class FileService(
-    INodeRepository nodeRepository,
+    // INodeRepository nodeRepository,
     IFileRepository fileRepository,
     IStorageService storageService,
-    IOptions<FileConfig> fileConfig
+    IOptions<UploadOptions> fileConfig
 ) : IFileService
 {
-    private readonly INodeRepository _nodeRepository = nodeRepository;
+    // private readonly INodeRepository _nodeRepository = nodeRepository;
     private readonly IFileRepository _fileRepository = fileRepository;
     private readonly IStorageService _storageService = storageService;
-    private readonly FileConfig _fileConfig = fileConfig.Value;
+    private readonly UploadOptions _uploadOptions = fileConfig.Value;
 
-    public async Task<PresignedResponseDto> PresignedUploadAsync(PresignedRequestDto presignedUploadDto, CancellationToken cancellationToken = default)
+    public async Task<OneOf<SingleUploadDto, MultipartUploadDto>> UploadAsync(UploadDto uploadDto, CancellationToken cancellationToken = default)
     {
-        var nodeId = Guid.NewGuid();
-        var expiresAt = DateTime.UtcNow.Add(_fileConfig.UploadExpiration);
-
-        // Generate a presigned URL for the file upload using the storage service and return it to the client
-        var storageKey = _storageService.GenerateS3Key(presignedUploadDto.FileName, nodeId);
-        var uploadUrl = _storageService.GenerateUploadUrl(storageKey, presignedUploadDto.MimeType, expiresAt);
-
-        var node = new NodeEntity
+        if (uploadDto.Size > _uploadOptions.MaxFileSize)
         {
-            Id = nodeId,
-            ParentId = presignedUploadDto.ParentId,
-            Name = presignedUploadDto.FileName,
-            Type = NodeType.File,
-            File = new FileEntity
-            {
-                MimeType = presignedUploadDto.MimeType,
-                Size = presignedUploadDto.Size,
-                ObjectKey = storageKey
-            }
-        };
+            throw new BadHttpRequestException($"File size exceeds the maximum allowed size of {_uploadOptions.MaxFileSize} bytes.");
+        }
 
-        await _nodeRepository.AddAsync(node, cancellationToken);
+        var nodeId = Guid.NewGuid();
+        var storageKey = _storageService.GenerateStorageKey(uploadDto.FileName, nodeId);
+        var expiresAt = DateTime.UtcNow.Add(_uploadOptions.UploadExpiration);
 
-        return new PresignedResponseDto
+        var file = new FileEntity
         {
             NodeId = nodeId,
-            StorageKey = storageKey,
-            UploadUrl = uploadUrl,
-            ExpiresAt = expiresAt
+            MimeType = uploadDto.MimeType,
+            Size = uploadDto.Size,
+            ObjectKey = storageKey,
+            Status = UploadStatus.Pending,
+            Node = new NodeEntity
+            {
+                Id = nodeId,
+                ParentId = uploadDto.ParentId,
+                Name = uploadDto.FileName,
+                Type = NodeType.File
+            }
         };
+
+        // SINGLE UPLOAD
+        if (uploadDto.Size <= _uploadOptions.SingleUploadMaxSize)
+        {
+            var sessionId = await _fileRepository.CreateSingleUploadSessionAsync(file, expiresAt, cancellationToken);
+            var uploadUrl = await _storageService.GenerateSingleUploadUrlAsync(storageKey, uploadDto.MimeType, expiresAt);
+
+            return new SingleUploadDto
+            {
+                NodeId = nodeId,
+                SessionId = sessionId,
+                UploadMode = UploadMode.Single,
+                UploadUrl = uploadUrl,
+                ExpiresAt = expiresAt
+            };
+        }
+
+        // MULTIPART UPLOAD
+        var multipartPlan = MultipartUploadPlanner.CreatePlan(
+            fileSize: uploadDto.Size,
+            singleUploadMaxSize: _uploadOptions.SingleUploadMaxSize,
+            defaultPartSize: _uploadOptions.DefaultPartSize,
+            minimumPartSize: _uploadOptions.MinPartSize,
+            maximumPartSize: _uploadOptions.MaxPartSize,
+            maximumPartsCount: _uploadOptions.MaxPartsCount
+        );
+
+        var multipartSessionId = await _fileRepository.CreateMultipartUploadSessionAsync(file, expiresAt, cancellationToken);
+
+        try
+        {
+            await _fileRepository.AttachMultipartUploadPartAsync(
+                multipartSessionId,
+                storageKey,
+                multipartPlan.PartSize,
+                multipartPlan.PartsCount,
+                cancellationToken
+            );
+
+            return new MultipartUploadDto
+            {
+                NodeId = nodeId,
+                SessionId = multipartSessionId,
+                UploadMode = UploadMode.Multipart,
+                PartSize = multipartPlan.PartSize,
+                PartsCount = multipartPlan.PartsCount,
+                ExpiresAt = expiresAt
+            };
+        }
+        catch
+        {
+            await _fileRepository.FinishMultipartUploadAsync(multipartSessionId, cancellationToken);
+
+            throw;
+        }
     }
 
-    public async Task<SuccessDto> ConfirmUploadAsync(ConfirmUploadDto confirmUploadDto, CancellationToken cancellationToken = default)
-    {
-        return await _fileRepository.UpdateStatusAsync(confirmUploadDto.NodeId, UploadStatus.Completed, cancellationToken) is true
-            ? new SuccessDto
-            {
-                Message = "File upload confirmed successfully."
-            }
-            : throw new NotFoundException($"File with NodeId {confirmUploadDto.NodeId} not found.");
-    }
+    // public async Task<SuccessDto> ConfirmUploadAsync(ConfirmUploadDto confirmUploadDto, CancellationToken cancellationToken = default)
+    // {
+    //     return await _fileRepository.UpdateStatusAsync(confirmUploadDto.NodeId, UploadStatus.Completed, cancellationToken) is true
+    //         ? new SuccessDto
+    //         {
+    //             Message = "File upload confirmed successfully."
+    //         }
+    //         : throw new NotFoundException($"File with NodeId {confirmUploadDto.NodeId} not found.");
+    // }
 }

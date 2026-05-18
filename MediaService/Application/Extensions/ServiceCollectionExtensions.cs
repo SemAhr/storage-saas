@@ -29,8 +29,8 @@ public static class ServiceCollectionExtensions
         });
 
         services
-            .AddOptions<FileConfig>()
-            .Bind(configuration.GetSection(FileConfig.SectionName))
+            .AddOptions<UploadOptions>()
+            .Bind(configuration.GetSection(UploadOptions.SectionName))
             .Validate(fileConfig => fileConfig.UploadExpiration > TimeSpan.Zero,
                 "Files:UploadExpiration must be greater than zero.")
             .Validate(fileConfig => fileConfig.UploadExpiration <= TimeSpan.FromHours(24),
@@ -39,6 +39,18 @@ public static class ServiceCollectionExtensions
                 "Files:DownloadExpiration must be greater than zero.")
             .Validate(fileConfig => fileConfig.DownloadExpiration <= TimeSpan.FromHours(24),
                 "Files:DownloadExpiration must not be greater than 24 hours.")
+            .Validate(fileConfig => fileConfig.MaxPartsCount > 0 && fileConfig.MaxPartsCount <= 10_000,
+                "Files:MaxPartsCount must be between 1 and 10000.")
+            .Validate(fileConfig => fileConfig.SingleUploadMaxSizeMib > 0,
+                "Files:SingleUploadMaxSizeMib must be greater than zero.")
+            .Validate(fileConfig => fileConfig.DefaultPartSizeMib >= 5 && fileConfig.DefaultPartSizeMib <= 10240,
+                "Files:DefaultPartSizeGib must be between 5 MiB and 10240 MiB (10 GiB).")
+            .Validate(fileConfig => fileConfig.MinPartSizeMib >= 5 && fileConfig.MinPartSizeMib <= 10240,
+                "Files:MinPartSizeMib must be between 5 MiB and 10240 MiB (10 GiB).")
+            .Validate(fileConfig => fileConfig.MaxPartSizeMib >= 5 && fileConfig.MaxPartSizeMib <= 10240,
+                "Files:MaxPartSizeGib must be between 5 MiB and 10240 MiB (10 GiB).")
+            .Validate(fileConfig => fileConfig.MinPartSize <= fileConfig.DefaultPartSize && fileConfig.DefaultPartSize <= fileConfig.MaxPartSize,
+                "Files:DefaultPartSizeMiB must be between Files:MinPartSizeMiB and Files:MaxPartSizeMiB.")
             .ValidateOnStart();
 
         services.Configure<PostgresConfig>(configuration.GetSection(PostgresConfig.SectionName));

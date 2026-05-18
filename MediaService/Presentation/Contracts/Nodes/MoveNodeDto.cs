@@ -1,6 +1,6 @@
 namespace MediaService.Presentation.Contracts.Nodes;
 
-public sealed class MoveNodeDto
+public sealed record MoveNodeDto
 {
     public required Guid ParentId { get; init; }
 }

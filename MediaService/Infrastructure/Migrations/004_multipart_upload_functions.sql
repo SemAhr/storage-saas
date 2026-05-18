@@ -7,10 +7,7 @@ create or replace function create_multipart_upload_session(
     p_object_key text,
     p_expires_at timestamptz
 )
-returns table (
-    node_id uuid,
-    session_id uuid
-)
+returns uuid
 language plpgsql
 as $$
 declare
@@ -115,10 +112,7 @@ begin
         )
     );
 
-    return query
-    select
-        p_node_id,
-        v_session_id;
+    return v_session_id;
 end;
 $$;
 
@@ -697,6 +691,152 @@ as $$
         on multipart.session_id = sessions.id
     where sessions.id = p_session_id
       and sessions.upload_mode = 'multipart';
+$$;
+
+create or replace function register_multipart_upload_parts_batch(
+    p_session_id uuid,
+    p_parts jsonb
+)
+returns table (
+    part_number integer,
+    accepted boolean,
+    code text,
+    message text
+)
+language plpgsql
+as $$
+declare
+    v_session_status upload_status;
+    v_file_status upload_status;
+    v_upload_mode upload_mode;
+    v_expires_at timestamptz;
+    v_file_size bigint;
+    v_part_size bigint;
+    v_parts_count integer;
+begin
+    select
+        sessions.status,
+        files.status,
+        sessions.upload_mode,
+        sessions.expires_at,
+        files.size,
+        multipart.part_size,
+        multipart.parts_count
+    into
+        v_session_status,
+        v_file_status,
+        v_upload_mode,
+        v_expires_at,
+        v_file_size,
+        v_part_size,
+        v_parts_count
+    from file_upload_sessions as sessions
+    join files
+        on files.node_id = sessions.node_id
+    join multipart_uploads as multipart
+        on multipart.session_id = sessions.id
+    where sessions.id = p_session_id;
+
+    if v_parts_count is null then
+        raise exception 'Multipart upload not found';
+    end if;
+
+    if v_upload_mode <> 'multipart' then
+        raise exception 'Upload session is not multipart';
+    end if;
+
+    if v_session_status <> 'uploading' then
+        raise exception 'Multipart upload is not uploading';
+    end if;
+
+    if v_file_status <> 'uploading' then
+        raise exception 'File is not uploading';
+    end if;
+
+    if v_expires_at <= now() then
+        raise exception 'Upload session has expired';
+    end if;
+
+    return query
+    with input_parts as (
+        select
+            (part_item->>'partNumber')::integer as part_number,
+            part_item->>'etag' as etag,
+            (part_item->>'size')::bigint as size
+        from jsonb_array_elements(p_parts) as part_item
+    ),
+    evaluated_parts as (
+        select
+            input_parts.part_number,
+            input_parts.etag,
+            input_parts.size,
+            case
+                when input_parts.part_number is null then false
+                when input_parts.part_number <= 0 then false
+                when input_parts.part_number > v_parts_count then false
+                when input_parts.etag is null or length(btrim(input_parts.etag)) = 0 then false
+                when input_parts.size <= 0 then false
+                when input_parts.size <>
+                    case
+                        when input_parts.part_number < v_parts_count
+                            then v_part_size
+                        else v_file_size - (v_part_size * (v_parts_count - 1))
+                    end then false
+                else true
+            end as accepted,
+            case
+                when input_parts.part_number is null then 'PART_NUMBER_REQUIRED'
+                when input_parts.part_number <= 0 then 'INVALID_PART_NUMBER'
+                when input_parts.part_number > v_parts_count then 'PART_NUMBER_OUT_OF_RANGE'
+                when input_parts.etag is null or length(btrim(input_parts.etag)) = 0 then 'ETAG_REQUIRED'
+                when input_parts.size <= 0 then 'INVALID_PART_SIZE'
+                when input_parts.size <>
+                    case
+                        when input_parts.part_number < v_parts_count
+                            then v_part_size
+                        else v_file_size - (v_part_size * (v_parts_count - 1))
+                    end then 'PART_SIZE_MISMATCH'
+                else null
+            end as code
+        from input_parts
+    ),
+    inserted_parts as (
+        insert into multipart_upload_parts (
+            session_id,
+            part_number,
+            etag,
+            size
+        )
+        select
+            p_session_id,
+            evaluated_parts.part_number,
+            btrim(evaluated_parts.etag),
+            evaluated_parts.size
+        from evaluated_parts
+        where evaluated_parts.accepted = true
+        on conflict (session_id, part_number)
+        do update set
+            etag = excluded.etag,
+            size = excluded.size,
+            uploaded_at = now()
+        returning part_number
+    )
+    select
+        evaluated_parts.part_number,
+        evaluated_parts.accepted,
+        evaluated_parts.code,
+        case evaluated_parts.code
+            when 'PART_NUMBER_REQUIRED' then 'Part number is required.'
+            when 'INVALID_PART_NUMBER' then 'Part number must be greater than zero.'
+            when 'PART_NUMBER_OUT_OF_RANGE' then 'Part number exceeds expected parts count.'
+            when 'ETAG_REQUIRED' then 'ETag is required.'
+            when 'INVALID_PART_SIZE' then 'Part size must be greater than zero.'
+            when 'PART_SIZE_MISMATCH' then 'Part size does not match expected size.'
+            else null
+        end as message
+    from evaluated_parts
+    order by evaluated_parts.part_number;
+end;
 $$;
 
 
