@@ -1,11 +1,28 @@
+using MediaService.Presentation.Contracts.Files;
+
 namespace MediaService.Application.Storage;
 
 public interface IStorageService
 {
-    long CalculateBasePartSize(long fileSize, long defaultPartSize, long minimumPartSize, long maximumPartSize, int maximumPartsCount);
+    long CalculateBasePartSize(
+        long fileSize,
+        long defaultPartSize,
+        long minimumPartSize,
+        long maximumPartSize,
+        int maximumPartsCount);
+
     string GenerateStorageKey(string fileName, Guid nodeId);
-    Task<string> GenerateSingleUploadUrlAsync(string key, string mimeType, DateTime expiresAt);
-    Task<string> GenerateMultipartUploadUrlAsync(string key, string mimeType, DateTime expiresAt);
-    string GenerateDownloadUrl(string key, DateTime expiresAt);
+    string GenerateSingleUploadUrl(string key, string mimeType, DateTime expiresAt);
+
+    Task<string> GenerateMultipartUploadAsync(string key, string mimeType, CancellationToken cancellationToken = default);
+    IReadOnlyList<PartUploadUrlDto> GenerateMultipartUploadUrls(
+        string key,
+        string uploadId,
+        IEnumerable<int> partNumbers,
+        DateTime expiresAt);
+
+    Task<bool> AbortMultipartUploadAsync(string key, string uploadId, CancellationToken cancellationToken = default);
     Task<bool> DeleteFileAsync(string key, CancellationToken cancellationToken = default);
+
+    string GenerateDownloadUrl(string key, DateTime expiresAt);
 }

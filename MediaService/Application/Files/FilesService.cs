@@ -1,4 +1,3 @@
-using MediaService.Application.Nodes;
 using MediaService.Application.Storage;
 using MediaService.Domain.Exceptions;
 using MediaService.Domain.Files;
@@ -11,13 +10,11 @@ using OneOf;
 namespace MediaService.Application.Files;
 
 public sealed class FileService(
-    // INodeRepository nodeRepository,
     IFileRepository fileRepository,
     IStorageService storageService,
     IOptions<UploadOptions> fileConfig
 ) : IFileService
 {
-    // private readonly INodeRepository _nodeRepository = nodeRepository;
     private readonly IFileRepository _fileRepository = fileRepository;
     private readonly IStorageService _storageService = storageService;
     private readonly UploadOptions _uploadOptions = fileConfig.Value;
@@ -53,7 +50,7 @@ public sealed class FileService(
         if (uploadDto.Size <= _uploadOptions.SingleUploadMaxSize)
         {
             var sessionId = await _fileRepository.CreateSingleUploadSessionAsync(file, expiresAt, cancellationToken);
-            var uploadUrl = await _storageService.GenerateSingleUploadUrlAsync(storageKey, uploadDto.MimeType, expiresAt);
+            var uploadUrl = _storageService.GenerateSingleUploadUrl(storageKey, uploadDto.MimeType, expiresAt);
 
             return new SingleUploadDto
             {
@@ -72,20 +69,22 @@ public sealed class FileService(
             defaultPartSize: _uploadOptions.DefaultPartSize,
             minimumPartSize: _uploadOptions.MinPartSize,
             maximumPartSize: _uploadOptions.MaxPartSize,
-            maximumPartsCount: _uploadOptions.MaxPartsCount
-        );
+            maximumPartsCount: _uploadOptions.MaxPartsCount);
 
         var multipartSessionId = await _fileRepository.CreateMultipartUploadSessionAsync(file, expiresAt, cancellationToken);
 
+        string? storageUploadId = null;
+
         try
         {
+            storageUploadId = await _storageService.GenerateMultipartUploadAsync(storageKey, uploadDto.MimeType, cancellationToken);
+
             await _fileRepository.AttachMultipartUploadPartAsync(
-                multipartSessionId,
-                storageKey,
-                multipartPlan.PartSize,
-                multipartPlan.PartsCount,
-                cancellationToken
-            );
+                sessionId: multipartSessionId,
+                storageUploadId: storageKey,
+                partSize: multipartPlan.PartSize,
+                partsCount: multipartPlan.PartsCount,
+                cancellationToken);
 
             return new MultipartUploadDto
             {
@@ -99,10 +98,51 @@ public sealed class FileService(
         }
         catch
         {
-            await _fileRepository.FinishMultipartUploadAsync(multipartSessionId, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(storageUploadId))
+            {
+                await _storageService.AbortMultipartUploadAsync(storageKey, storageUploadId, cancellationToken);
+            }
+
+            await _fileRepository.FinishMultipartUploadAsync(
+                sessionId: multipartSessionId,
+                status: UploadStatus.Failed,
+                reason: "Failed to initialize multipart upload session.",
+                cancellationToken);
 
             throw;
         }
+    }
+
+    public async Task<IReadOnlyList<PartUploadUrlDto>> GetPartsAsync(Guid sessionId, int from, int to, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var sessionDetails = await _fileRepository.GetMultipartUploadSessionDetails(sessionId, cancellationToken);
+
+            var partNumbers = Enumerable.Range(from, to - from + 1);
+
+            return _storageService.GenerateMultipartUploadUrls(
+                key: sessionDetails.ObjectKey,
+                uploadId: sessionDetails.StorageUploadId,
+                partNumbers: partNumbers,
+                expiresAt: sessionDetails.ExpiresAt);
+        }
+        catch
+        {
+            throw new NotFoundException($"Multipart upload session with id '{sessionId}' not found.");
+        }
+    }
+
+    public async Task<UploadedPartsResponseDto> ConfirmPartsAsync(Guid sessionId, IReadOnlyList<UploadPartDto> parts, CancellationToken cancellationToken = default)
+    {
+    }
+
+    public async Task<SuccessDto> AbortUploadAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+    }
+
+    public async Task<SuccessDto> ConfirmUploadAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
     }
 
     // public async Task<SuccessDto> ConfirmUploadAsync(ConfirmUploadDto confirmUploadDto, CancellationToken cancellationToken = default)

@@ -62,12 +62,20 @@ public static class FileEndpoints
         group.MapPost("/uploads/{sessionId:guid}/parts",
             async (
                 [FromRoute] Guid sessionId,
-                [FromBody] UploadPartsRequestDto requestDto,
+                [FromBody] IReadOnlyList<UploadPartDto> parts,
                 IFileService fileService,
                 CancellationToken cancellationToken
             ) =>
             {
-                var result = await fileService.ConfirmPartsAsync(sessionId, requestDto, cancellationToken);
+                if (parts == null || parts.Count == 0)
+                {
+                    return Results.BadRequest(new
+                    {
+                        error = "Parts list cannot be null or empty."
+                    });
+                }
+
+                var result = await fileService.ConfirmPartsAsync(sessionId, parts, cancellationToken);
                 return Results.Ok(result);
             })
         .WithName("ConfirmUploadParts").WithDescription("Confirm the parts of a multipart upload session.");

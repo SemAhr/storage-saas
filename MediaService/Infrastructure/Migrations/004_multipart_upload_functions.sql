@@ -116,6 +116,7 @@ begin
 end;
 $$;
 
+-- //
 
 create or replace function attach_multipart_upload(
     p_session_id uuid,
@@ -235,46 +236,7 @@ begin
 end;
 $$;
 
-
-create or replace function get_multipart_upload_session_for_part_urls(
-    p_session_id uuid
-)
-returns table (
-    session_id uuid,
-    node_id uuid,
-    object_key text,
-    mime_type text,
-    size bigint,
-    storage_upload_id text,
-    part_size bigint,
-    parts_count integer,
-    expires_at timestamptz,
-    session_status upload_status,
-    file_status upload_status
-)
-language sql
-as $$
-    select
-        sessions.id as session_id,
-        files.node_id,
-        files.object_key,
-        files.mime_type,
-        files.size,
-        multipart.storage_upload_id,
-        multipart.part_size,
-        multipart.parts_count,
-        sessions.expires_at,
-        sessions.status as session_status,
-        files.status as file_status
-    from file_upload_sessions as sessions
-    join files
-        on files.node_id = sessions.node_id
-    join multipart_uploads as multipart
-        on multipart.session_id = sessions.id
-    where sessions.id = p_session_id
-      and sessions.upload_mode = 'multipart';
-$$;
-
+-- //
 
 create or replace function register_multipart_upload_part(
     p_session_id uuid,
@@ -385,38 +347,7 @@ begin
 end;
 $$;
 
-
-create or replace function get_multipart_upload_progress(
-    p_session_id uuid
-)
-returns table (
-    session_id uuid,
-    uploaded_parts integer,
-    expected_parts integer,
-    uploaded_size bigint,
-    expected_size bigint
-)
-language sql
-as $$
-    select
-        multipart.session_id,
-        count(parts.part_number)::integer as uploaded_parts,
-        multipart.parts_count as expected_parts,
-        coalesce(sum(parts.size), 0)::bigint as uploaded_size,
-        files.size as expected_size
-    from multipart_uploads as multipart
-    join file_upload_sessions as sessions
-        on sessions.id = multipart.session_id
-    join files
-        on files.node_id = sessions.node_id
-    left join multipart_upload_parts as parts
-        on parts.session_id = multipart.session_id
-    where multipart.session_id = p_session_id
-    group by
-        multipart.session_id,
-        multipart.parts_count,
-        files.size;
-$$;
+-- //
 
 
 create or replace function validate_multipart_upload_parts(
@@ -516,58 +447,6 @@ end;
 $$;
 
 
-create or replace function get_multipart_upload_for_completion(
-    p_session_id uuid
-)
-returns table (
-    session_id uuid,
-    node_id uuid,
-    object_key text,
-    mime_type text,
-    size bigint,
-    storage_upload_id text,
-    parts_count integer,
-    session_status upload_status,
-    file_status upload_status
-)
-language sql
-as $$
-    select
-        sessions.id as session_id,
-        files.node_id,
-        files.object_key,
-        files.mime_type,
-        files.size,
-        multipart.storage_upload_id,
-        multipart.parts_count,
-        sessions.status as session_status,
-        files.status as file_status
-    from file_upload_sessions as sessions
-    join files
-        on files.node_id = sessions.node_id
-    join multipart_uploads as multipart
-        on multipart.session_id = sessions.id
-    where sessions.id = p_session_id
-      and sessions.upload_mode = 'multipart';
-$$;
-
-
-create or replace function get_multipart_upload_parts_for_completion(
-    p_session_id uuid
-)
-returns table (
-    part_number integer,
-    etag text
-)
-language sql
-as $$
-    select
-        parts.part_number,
-        parts.etag
-    from multipart_upload_parts as parts
-    where parts.session_id = p_session_id
-    order by parts.part_number asc;
-$$;
 
 
 create or replace function complete_multipart_upload_session(
@@ -663,35 +542,6 @@ begin
 end;
 $$;
 
-
-create or replace function get_multipart_upload_for_abort(
-    p_session_id uuid
-)
-returns table (
-    session_id uuid,
-    node_id uuid,
-    object_key text,
-    storage_upload_id text,
-    session_status upload_status,
-    file_status upload_status
-)
-language sql
-as $$
-    select
-        sessions.id as session_id,
-        files.node_id,
-        files.object_key,
-        multipart.storage_upload_id,
-        sessions.status as session_status,
-        files.status as file_status
-    from file_upload_sessions as sessions
-    join files
-        on files.node_id = sessions.node_id
-    left join multipart_uploads as multipart
-        on multipart.session_id = sessions.id
-    where sessions.id = p_session_id
-      and sessions.upload_mode = 'multipart';
-$$;
 
 create or replace function register_multipart_upload_parts_batch(
     p_session_id uuid,
@@ -1017,4 +867,35 @@ begin
         expired_sessions.expires_at
     from expired_sessions;
 end;
+$$;
+
+-- // ======================== \\ --
+
+create or replace function get_multipart_upload_for_abort(
+    p_session_id uuid
+)
+returns table (
+    session_id uuid,
+    node_id uuid,
+    object_key text,
+    storage_upload_id text,
+    session_status upload_status,
+    file_status upload_status
+)
+language sql
+as $$
+    select
+        sessions.id as session_id,
+        files.node_id,
+        files.object_key,
+        multipart.storage_upload_id,
+        sessions.status as session_status,
+        files.status as file_status
+    from file_upload_sessions as sessions
+    join files
+        on files.node_id = sessions.node_id
+    left join multipart_uploads as multipart
+        on multipart.session_id = sessions.id
+    where sessions.id = p_session_id
+      and sessions.upload_mode = 'multipart';
 $$;
