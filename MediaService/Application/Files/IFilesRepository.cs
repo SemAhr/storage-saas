@@ -4,12 +4,12 @@ namespace MediaService.Application.Files;
 
 public interface IFileRepository
 {
-    Task<Guid> CreateSingleUploadSessionAsync(
+    Task<Guid?> CreateSingleUploadSessionAsync(
         FileEntity file,
         DateTime expiresAt,
         CancellationToken cancellationToken = default);
 
-    Task<Guid> CreateMultipartUploadSessionAsync(
+    Task<Guid?> CreateMultipartUploadSessionAsync(
         FileEntity file,
         DateTime expiresAt,
         CancellationToken cancellationToken = default);
@@ -27,9 +27,9 @@ public interface IFileRepository
         string reason,
         CancellationToken cancellationToken = default);
 
-    Task<MultipartUploadSessionDetailsDto> GetMultipartUploadSessionDetails(Guid sessionId, CancellationToken cancellationToken = default);
-    Task<UploadForAbortDto> GetUploadForAbortAsync(Guid sessionId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<PartForConfirmDto>> GetPartsForConfirmAsync(Guid sessionId, CancellationToken cancellationToken = default);
+    Task<MultipartUploadSessionDetailsDto?> GetMultipartUploadSessionDetails(Guid sessionId, CancellationToken cancellationToken = default);
+    Task<UploadForAbortDto?> GetUploadForAbortAsync(Guid sessionId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PartForConfirmDto>?> GetPartsForConfirmAsync(Guid sessionId, CancellationToken cancellationToken = default);
 
     // Task<FileEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
     // Task<bool> UpdateStatusAsync(Guid id, UploadStatus status, CancellationToken cancellationToken = default);

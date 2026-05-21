@@ -8,8 +8,9 @@ builder.Services.AddAppServices(builder.Configuration);
 
 var app = builder.Build();
 
-app.UseRequestLogging();
 app.UseAppExceptionHandler();
+app.UseTraceContext();
+app.UseRequestLogging();
 
 app.UseSwagger();
 app.UseSwaggerUI();

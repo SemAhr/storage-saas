@@ -1,19 +1,48 @@
 namespace MediaService.Domain.Exceptions;
 
-public abstract class AppException(string message, int statusCode, string? title = null) : Exception(message)
+public enum AppErrorType
 {
-    public int StatusCode { get; } = statusCode;
-    public string? Title { get; } = title;
+    Validation,
+    NotFound,
+    Conflict,
+    Unauthorized,
+    Forbidden,
+    ExternalDependency,
+    Infrastructure
 }
 
-public sealed class NotFoundException(string message) : AppException(message, 404, "Not Found")
+public abstract class AppException(
+    string message,
+    AppErrorType errorType,
+    Exception? innerException = null) : Exception(message, innerException)
+{
+    public AppErrorType ErrorType { get; } = errorType;
+}
+
+public sealed class ValidationException(string message, Exception? innerException = null) : AppException(message, AppErrorType.Validation, innerException)
 {
 }
 
-public sealed class ValidationException(string message) : AppException(message, 400, "Validation Error")
+public sealed class NotFoundException(string message, Exception? innerException = null) : AppException(message, AppErrorType.NotFound, innerException)
 {
 }
 
-public sealed class ConflictException(string message) : AppException(message, 409, "Conflict")
+public sealed class ConflictException(string message, Exception? innerException = null) : AppException(message, AppErrorType.Conflict, innerException)
+{
+}
+
+public sealed class UnauthorizedAppException(string message, Exception? innerException = null) : AppException(message, AppErrorType.Unauthorized, innerException)
+{
+}
+
+public sealed class ForbiddenAppException(string message, Exception? innerException = null) : AppException(message, AppErrorType.Forbidden, innerException)
+{
+}
+
+public sealed class ExternalDependencyException(string message, Exception? innerException = null) : AppException(message, AppErrorType.ExternalDependency, innerException)
+{
+}
+
+public sealed class InfrastructureException(string message, Exception? innerException = null) : AppException(message, AppErrorType.Infrastructure, innerException)
 {
 }

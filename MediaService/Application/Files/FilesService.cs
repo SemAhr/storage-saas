@@ -115,26 +115,27 @@ public sealed class FileService(
 
     public async Task<IReadOnlyList<PartUploadUrlDto>> GetPartsAsync(Guid sessionId, int from, int to, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            var sessionDetails = await _fileRepository.GetMultipartUploadSessionDetails(sessionId, cancellationToken);
+        var sessionDetails = await _fileRepository.GetMultipartUploadSessionDetails(sessionId, cancellationToken);
 
-            var partNumbers = Enumerable.Range(from, to - from + 1);
+        var partNumbers = Enumerable.Range(from, to - from + 1);
 
-            return _storageService.GenerateMultipartUploadUrls(
-                key: sessionDetails.ObjectKey,
-                uploadId: sessionDetails.StorageUploadId,
-                partNumbers: partNumbers,
-                expiresAt: sessionDetails.ExpiresAt);
-        }
-        catch
-        {
-            throw new NotFoundException($"Multipart upload session with id '{sessionId}' not found.");
-        }
+        return _storageService.GenerateMultipartUploadUrls(
+            key: sessionDetails.ObjectKey,
+            uploadId: sessionDetails.StorageUploadId,
+            partNumbers: partNumbers,
+            expiresAt: sessionDetails.ExpiresAt);
     }
 
     public async Task<UploadedPartsResponseDto> ConfirmPartsAsync(Guid sessionId, IReadOnlyList<UploadPartDto> parts, CancellationToken cancellationToken = default)
     {
+        try
+        {
+            var sessionDetails = await _fileRepository.GetMultipartUploadSessionDetails(sessionId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            throw new NotFoundException(ex.Message);
+        }
     }
 
     public async Task<SuccessDto> AbortUploadAsync(Guid sessionId, CancellationToken cancellationToken = default)

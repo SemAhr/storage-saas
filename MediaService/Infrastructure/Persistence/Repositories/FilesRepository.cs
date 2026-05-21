@@ -8,21 +8,14 @@ public sealed class FileRepository(AppDbContext dbContext) : IFileRepository
 {
     private readonly AppDbContext _dbContext = dbContext;
 
-    public async Task<Guid> CreateSingleUploadSessionAsync(FileEntity file, DateTime expiresAt, CancellationToken cancellationToken = default)
+    public async Task<Guid?> CreateSingleUploadSessionAsync(FileEntity file, DateTime expiresAt, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(file);
-
-        if (file.Node is null)
-        {
-            throw new ArgumentException("File node is required.", nameof(file));
-        }
-
         return await _dbContext.Database
             .SqlQuery<Guid>($"""
                 select create_single_upload_session(
                     p_node_id := {file.NodeId},
-                    p_parent_id := {file.Node.ParentId},
-                    p_name := {file.Node.Name},
+                    p_parent_id := {file.Node?.ParentId},
+                    p_name := {file.Node?.Name},
                     p_mime_type := {file.MimeType},
                     p_size := {file.Size},
                     p_object_key := {file.ObjectKey},
